@@ -73,7 +73,7 @@ for i in train.columns[2:]:
         ordinal_features.append(i)
         
 for feature in cat_features:
-    dummies = pd.get_dummies(train[feature],prefix=feature)[1:]
+    dummies = pd.get_dummies(train[feature],prefix=feature,drop_first=True)
     train = pd.concat([train,dummies],axis=1)
     train.drop(feature,axis=1,inplace=True)
 
@@ -99,15 +99,18 @@ def cv_score(model,X,Y,cv=5):
     kf = StratifiedKFold(n_splits=cv)
     X = X.as_matrix()
     Y= Y.as_matrix()
-    score = np.zeros(4)
+    score = np.zeros(5)
     for train_index,test_index in kf.split(X,Y):
         train_x, test_x = X[train_index],X[test_index]
         train_y, test_y = Y[train_index],Y[test_index]
         model.fit(train_x,train_y)
-        pre = model.predict(test_x)
         pre_proba = model.predict_proba(test_x).T[1]
+        pre = np.ravel(pre_proba)
+        pre[pre >= 0.5] = 1
+        pre[pre < 0.5] = 0
         temp = [metrics.accuracy_score(pre,test_y),
                 metrics.fbeta_score(test_y,pre,beta=2.0),
+		metrics.average_precision_score(test_y,pre_proba),
                 metrics.roc_auc_score(test_y,pre_proba),
                 gini_normalized(test_y,pre_proba)]
         score = np.mean([score,temp],axis=0)
@@ -116,11 +119,11 @@ def saveFigure(x,scores,x_label):
     scores = np.matrix(scores)
     fig = plt.figure(figsize = (12,10))
     length = len(np.ravel(scores[0]))
-    data = pd.DataFrame(data=scores,columns=['acc','F2 score','ROC_AUC','Gini'],index=x)
+    data = pd.DataFrame(data=scores,columns=['acc','F2 score','AP','ROC_AUC','Gini'],index=x)
     plt.plot(data)
     plt.xlabel(x_label,fontsize=18)
     plt.ylabel('CV-scores',fontsize=18)
-    plt.legend(['acc','F2 score','ROC_AUC','Gini'])
+    plt.legend(['acc','F2 score','AP','ROC_AUC','Gini'])
     #plt.show()
     fig.savefig(x_label+'.png', dpi=fig.dpi)
 
@@ -128,15 +131,15 @@ def saveFigure(x,scores,x_label):
 # In[ ]:
 
 
-estimators = np.linspace(50,350,7,dtype=int)
+estimators = np.linspace(100,1000,10,dtype=int)
 est_scores = []
 for est in estimators:
     clf = xgb.XGBClassifier(n_estimators = est, max_depth = 5, silent = True, n_jobs = -1,
                         booster='gbtree',random_state=7, subsample = 0.8, colsample_bytree = 0.8,
-                        learning_rate=0.01, objective = 'binary:logistic')#scale_pos_weight
+                        learning_rate=0.1, objective = 'binary:logistic')#scale_pos_weight
     est_scores.append(cv_score(clf,x_train,y_train))
 est_scores = np.array(est_scores)
 
-np.savetxt('xgb_estimators.txt', est_scores, delimiter=',')
-saveFigure(estimators, est_scores, 'Estimators')
+np.savetxt('xgb_estimators_100_1000_10_0.1_5.txt', est_scores, delimiter=',')
+saveFigure(estimators, est_scores, 'Estimators_100_1000_10_0.1_5')
 

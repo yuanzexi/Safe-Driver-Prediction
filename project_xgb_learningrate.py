@@ -73,7 +73,7 @@ for i in train.columns[2:]:
         ordinal_features.append(i)
         
 for feature in cat_features:
-    dummies = pd.get_dummies(train[feature],prefix=feature)[1:]
+    dummies = pd.get_dummies(train[feature],prefix=feature,drop_first=True)
     train = pd.concat([train,dummies],axis=1)
     train.drop(feature,axis=1,inplace=True)
 
@@ -99,7 +99,7 @@ def cv_score(model,X,Y,cv=5):
     kf = StratifiedKFold(n_splits=cv)
     X = X.as_matrix()
     Y= Y.as_matrix()
-    score = np.zeros(4)
+    score = np.zeros(5)
     for train_index,test_index in kf.split(X,Y):
         train_x, test_x = X[train_index],X[test_index]
         train_y, test_y = Y[train_index],Y[test_index]
@@ -108,6 +108,7 @@ def cv_score(model,X,Y,cv=5):
         pre_proba = model.predict_proba(test_x).T[1]
         temp = [metrics.accuracy_score(pre,test_y),
                 metrics.fbeta_score(test_y,pre,beta=2.0),
+		metrics.average_precision_score(test_y,pre_proba),
                 metrics.roc_auc_score(test_y,pre_proba),
                 gini_normalized(test_y,pre_proba)]
         score = np.mean([score,temp],axis=0)
@@ -128,7 +129,7 @@ def saveFigure(x,scores,x_label):
 # In[ ]:
 
 
-etas = np.logspace(-2,0,11)
+etas = [0.001,0.005,0.01,0.05,0.1,0.3,0.5,1]
 eta_scores = []
 for eta in etas:
     clf = xgb.XGBClassifier(n_estimators = 100, max_depth = 5, silent = True, n_jobs = -1,
@@ -137,6 +138,6 @@ for eta in etas:
     eta_scores.append(cv_score(clf,x_train,y_train))
 eta_scores = np.array(eta_scores)
 
-np.savetxt('xgb_etas.txt', eta_scores, delimiter=',')
-saveFigure(etas, eta_scores, 'etas')
+np.savetxt('xgb_etas_-3_0_8.txt', eta_scores, delimiter=',')
+saveFigure(etas, eta_scores, 'xgb_etas_-3_0_8')
 

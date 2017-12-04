@@ -73,7 +73,7 @@ for i in train.columns[2:]:
         ordinal_features.append(i)
         
 for feature in cat_features:
-    dummies = pd.get_dummies(train[feature],prefix=feature)[1:]
+    dummies = pd.get_dummies(train[feature],prefix=feature,drop_first=True)
     train = pd.concat([train,dummies],axis=1)
     train.drop(feature,axis=1,inplace=True)
 
@@ -99,7 +99,7 @@ def cv_score(model,X,Y,cv=5):
     kf = StratifiedKFold(n_splits=cv)
     X = X.as_matrix()
     Y= Y.as_matrix()
-    score = np.zeros(4)
+    score = np.zeros(5)
     for train_index,test_index in kf.split(X,Y):
         train_x, test_x = X[train_index],X[test_index]
         train_y, test_y = Y[train_index],Y[test_index]
@@ -108,6 +108,7 @@ def cv_score(model,X,Y,cv=5):
         pre_proba = model.predict_proba(test_x).T[1]
         temp = [metrics.accuracy_score(pre,test_y),
                 metrics.fbeta_score(test_y,pre,beta=2.0),
+		metrics.average_precision_score(test_y,pre_proba),
                 metrics.roc_auc_score(test_y,pre_proba),
                 gini_normalized(test_y,pre_proba)]
         score = np.mean([score,temp],axis=0)
@@ -128,15 +129,15 @@ def saveFigure(x,scores,x_label):
 # In[ ]:
 
 
-depths = np.linspace(2,10,9,dtype=int)
+depths = [1,3,5,7,9,11,13,15,17]
 depth_scores = []
 for depth in depths:
     clf = xgb.XGBClassifier(n_estimators = 100, max_depth = depth, silent = True, n_jobs = -1,
                         booster='gbtree',random_state=7, subsample = 0.8, colsample_bytree = 0.8,
-                        learning_rate=0.01, objective = 'binary:logistic')#scale_pos_weight
+                        learning_rate=0.1, objective = 'binary:logistic')#scale_pos_weight
     depth_scores.append(cv_score(clf,x_train,y_train))
 depth_scores = np.array(depth_scores)
 
-np.savetxt('xgb_depths.txt', depth_scores, delimiter=',')
-saveFigure(depths, depth_scores, 'Max_depth')
+np.savetxt('xgb_depths_1_17_9_0.1_100.txt', depth_scores, delimiter=',')
+saveFigure(depths, depth_scores, 'xgb_depth_1_17_9_0.1_100')
 
