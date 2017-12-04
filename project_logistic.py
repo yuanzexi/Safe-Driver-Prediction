@@ -1,10 +1,18 @@
 
+# coding: utf-8
+
+# In[92]:
+
+
+# This Python 3 environment comes with many helpful analytics libraries installed
+# It is defined by the kaggle/python docker image: https://github.com/kaggle/docker-python
+# For example, here's several helpful packages to load in 
+
 import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 import matplotlib.pyplot as plt
 #import seaborn as sns
 #from sklearn import *
-import xgboost as xgb
 #import lightgbm as lgb
 from sklearn.preprocessing import StandardScaler, normalize
 from sklearn.cross_validation import train_test_split
@@ -14,8 +22,13 @@ from sklearn.model_selection import StratifiedKFold,GridSearchCV
 import random
 
 
+# In[112]:
+
 
 train = pd.read_csv('train.csv')
+
+
+# In[113]:
 
 
 # found that 'ps_calc_15_bin','ps_calc_16_bin','ps_calc_17_bin','ps_calc_18_bin','ps_calc_19_bin','ps_calc_20_bin' are almost uniform distribution on target = 1
@@ -26,14 +39,14 @@ train.drop(['ps_calc_01','ps_calc_02','ps_calc_03'],axis=1,inplace=True)
 train.drop(['ps_calc_04','ps_calc_09'],axis=1,inplace=True)
 # the only sample whose 'ps_car_12' value is -1 and the 'target' value is 0, I think this is a noise sample
 train.drop(298018,axis=0,inplace=True) 
-
+'''
 # 'ps_reg_01','ps_reg_02','ps_reg_03' are correlated and their combination's distribution looks great, like a normal distribution
 ps_reg = train['ps_reg_01'].add(train['ps_reg_02']).add(train['ps_reg_03'])
 ps_reg.name = 'ps_reg'
 train = pd.concat([train,ps_reg],axis=1)
 train.drop(['ps_reg_01','ps_reg_02','ps_reg_03'],axis=1,inplace=True)
 #train.drop(['ps_reg_01','ps_reg_02'],axis=1,inplace=True)
-'''
+
 # 'ps_car_12','ps_car_13' are correlated and their combination's distribution looks great
 ps_car = train['ps_car_12'].add(train['ps_car_13'])#.add(train['ps_car_14'])
 ps_car.name = 'ps_car_1213'
@@ -44,6 +57,9 @@ train.drop(['ps_car_12','ps_car_13'],axis=1,inplace=True)
 target = train['target']
 train.drop('target',axis=1,inplace=True)
 train.drop('id',axis=1,inplace=True)
+
+
+# In[114]:
 
 
 cat_features = []
@@ -64,6 +80,16 @@ for feature in cat_features:
     dummies = pd.get_dummies(train[feature],prefix=feature,drop_first=True)
     train = pd.concat([train,dummies],axis=1)
     train.drop(feature,axis=1,inplace=True)
+'''
+x_train, x_test, y_train, y_test = train_test_split(train, target, test_size = 0.25, random_state = 0)
+
+scaler = StandardScaler()
+x_train = scaler.fit_transform(x_train)
+x_test = scaler.transform(x_test)
+'''
+
+
+# In[120]:
 
 
 def gini(y, pred):
@@ -77,7 +103,7 @@ def cv_score(model,X,Y,cv=5):
     kf = StratifiedKFold(n_splits=cv)
     #X = X.as_matrix()
     #Y= Y.as_matrix()
-    score = np.zeros(4)
+    score = np.zeros(5)
     for train_index,test_index in kf.split(X,Y):
         train_x, test_x = X[train_index],X[test_index]
         train_y, test_y = Y[train_index],Y[test_index]
@@ -86,6 +112,7 @@ def cv_score(model,X,Y,cv=5):
         pre_proba = model.predict_proba(test_x).T[1]
         temp = [metrics.accuracy_score(pre,test_y),
                 metrics.fbeta_score(test_y,pre,beta=2.0),
+                metrics.average_precision_score(test_y,pre_proba),
                 metrics.roc_auc_score(test_y,pre_proba),
                 gini_normalized(test_y,pre_proba)]
         score = np.mean([score,temp],axis=0)
@@ -103,6 +130,9 @@ def saveFigure(x,scores,x_label):
     fig.savefig(x_label+'.png', dpi=fig.dpi)
 
 
+# In[116]:
+
+
 miss_features = []
 miss_perc = []
 miss_cat = []
@@ -115,15 +145,19 @@ for f in train.columns:
         miss_perc.append(miss*1.0/train.shape[0])
 
 
-train[miss_features[0]].replace(-1,train[miss_features[0]].mode().values[0],inplace=True)
-train[miss_features[1]].replace(-1,train[miss_features[1]].mode().values[0],inplace=True)
-train[miss_features[2]].replace(-1,np.nan,inplace=True)
-mean = train[miss_features[2]].mean()
-train[miss_features[2]].fillna(mean,inplace=True)
-train[miss_features[3]].replace(-1,np.nan,inplace=True)
-mean = train[miss_features[3]].mean()
-train[miss_features[3]].fillna(mean,inplace=True)
+# In[117]:
 
+
+for fea in miss_features:
+    if train[fea].dtype == 'int64':
+        train[fea].replace(-1,train[fea].mode().values[0],inplace=True)
+    elif train[fea].dtype == 'float64':
+        train[fea].replace(-1,np.nan,inplace=True)
+        mean = train[fea].mean()
+        train[fea].fillna(mean,inplace=True)
+
+
+# In[118]:
 
 
 x_train, x_test, y_train, y_test = train_test_split(train, target, test_size = 0.25, random_state = 0)
@@ -134,16 +168,21 @@ x_test = scaler.transform(x_test)
 y_train = np.ravel(y_train)
 
 
+# In[ ]:
 
-c_arr = np.logspace(-3,1,20)
+
+c_arr = [0.001,0.005,0.01,0.05,0.1,0.3,0.5,1]
 scores = []
 for c in c_arr:
-    lr = LogisticRegression(class_weight='balanced', solver='sag',C=c,n_jobs=-1,max_iter=200)
+    lr = LogisticRegression(class_weight='balanced', C=c,n_jobs=-1,max_iter=200)
     temp = cv_score(lr,x_train,y_train)
-    print (temp)
+    print ('c:',c,',',temp)
     scores.append(temp)
 
 
-np.savetxt('LR_C_-3_1_20.txt', scores, delimiter=',')
-saveFigure(c_arr,scores,'LR_C_-3_1_20')
+# In[ ]:
+
+
+np.savetxt('LR_C_-3_1_8.txt', scores, delimiter=',')
+saveFigure(c_arr,scores,'LR_C_-3_1_8')
 
