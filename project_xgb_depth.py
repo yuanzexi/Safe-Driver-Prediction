@@ -26,21 +26,16 @@ import random
 
 train = pd.read_csv('train.csv')
 
-
+calc = []
+for i in train.columns[2:]:
+    if i.startswith('ps_calc'):
+        calc.append(i)
+train.drop(calc,axis=1,inplace=True)
 # found that 'ps_calc_15_bin','ps_calc_16_bin','ps_calc_17_bin','ps_calc_18_bin','ps_calc_19_bin','ps_calc_20_bin' are almost uniform distribution on target = 1
-train.drop(['ps_calc_15_bin','ps_calc_16_bin','ps_calc_17_bin','ps_calc_18_bin','ps_calc_19_bin','ps_calc_20_bin'],axis=1,inplace=True)
-# found that 'ps_calc_01','ps_calc_02','ps_calc_03' are uniform distribution on target = 1
-train.drop(['ps_calc_01','ps_calc_02','ps_calc_03'],axis=1,inplace=True)
-# found that 'ps_calc_04','ps_calc_09' are uniform distribution on target = 1
-train.drop(['ps_calc_04','ps_calc_09'],axis=1,inplace=True)
 # the only sample whose 'ps_car_12' value is -1 and the 'target' value is 0, I think this is a noise sample
 train.drop(298018,axis=0,inplace=True) 
 
 # 'ps_reg_01','ps_reg_02','ps_reg_03' are correlated and their combination's distribution looks great, like a normal distribution
-ps_reg = train['ps_reg_01'].add(train['ps_reg_02']).add(train['ps_reg_03'])
-ps_reg.name = 'ps_reg'
-train = pd.concat([train,ps_reg],axis=1)
-train.drop(['ps_reg_01','ps_reg_02','ps_reg_03'],axis=1,inplace=True)
 #train.drop(['ps_reg_01','ps_reg_02'],axis=1,inplace=True)
 '''
 # 'ps_car_12','ps_car_13' are correlated and their combination's distribution looks great
@@ -129,15 +124,15 @@ def saveFigure(x,scores,x_label):
 # In[ ]:
 
 
-depths = [1,3,5,7,9,11,13,15,17]
+depths = [2,3,4,5,6]
 depth_scores = []
 for depth in depths:
-    clf = xgb.XGBClassifier(n_estimators = 100, max_depth = depth, silent = True, n_jobs = -1,
+    clf = xgb.XGBClassifier(n_estimators = 90, max_depth = depth, silent = True, n_jobs = -1,
                         booster='gbtree',random_state=7, subsample = 0.8, colsample_bytree = 0.8,
                         learning_rate=0.1, objective = 'binary:logistic')#scale_pos_weight
     depth_scores.append(cv_score(clf,x_train,y_train))
 depth_scores = np.array(depth_scores)
 
-np.savetxt('xgb_depths_1_17_9_0.1_100.txt', depth_scores, delimiter=',')
-saveFigure(depths, depth_scores, 'xgb_depth_1_17_9_0.1_100')
+np.savetxt('xgb_depths_2_6_0.1_90.txt', depth_scores, delimiter=',')
+saveFigure(depths, depth_scores, 'xgb_depth_2_6_0.1_90')
 

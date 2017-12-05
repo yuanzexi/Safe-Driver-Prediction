@@ -166,8 +166,8 @@ clf_xgb = xgb.XGBClassifier(n_estimators = 90, max_depth = 5, silent = True, n_j
                     seed=7, subsample = 0.8, colsample_bytree = 0.8,
                     learning_rate=0.1, objective = 'binary:logistic')#scale_pos_weight
 
-clf_rf = ensemble.RandomForestClassifier(n_estimators= 100, max_depth=5, 
-                                         min_samples_leaf=4, n_jobs = -1, #oob_score =True, 
+clf_rf = ensemble.RandomForestClassifier(n_estimators= 120, max_depth=9, 
+                                         min_samples_leaf=7, n_jobs = -1, #oob_score =True, 
                                          max_features='auto', random_state=0, class_weight='balanced_subsample')
 
 clf_lr = LogisticRegression(class_weight='balanced', C=0.1,n_jobs=-1,max_iter=200)
@@ -177,55 +177,58 @@ clf_lr = LogisticRegression(class_weight='balanced', C=0.1,n_jobs=-1,max_iter=20
 
 
 clf_xgb.fit(x_train,y_train)
-xgb_score_one = (test_score(clf_xgb,x_test,y_test))
+xgb_final = (test_score(clf_xgb,x_test,y_test))
 clf_rf.fit(x_train,y_train)
-rf_score_one = (test_score(clf_rf,x_test,y_test))
+rf_final = (test_score(clf_rf,x_test,y_test))
 x_train = process_missing(x_train)
 clf_lr.fit(x_train,y_train)
 x_test = process_missing(x_test)
-lr_score_one = (test_score(clf_lr,x_test,y_test))
+lr_final = (test_score(clf_lr,x_test,y_test))
 
 
 # In[ ]:
 
 
 '''
-kf = StratifiedKFold(n_splits=5)
-train = train.as_matrix()
-target = np.ravel(target)
-score = np.zeros(5)
+kf = StratifiedKFold(n_splits=5,random_state=7)
 xgb_score = []
 rf_score = []
 lr_score = []
+
+train2= train.as_matrix()
+target2= target.as_matrix()
 for train_index,test_index in kf.split(train,target):
-    x_train, test_x = X[train_index],X[test_index]
-    train_y, test_y = Y[train_index],Y[test_index]
-    clf_xgb.fit(x_train,train_y)
+    train_x, test_x = train2[train_index],train2[test_index]
+    train_y, test_y = target2[train_index],target2[test_index]
+    clf_xgb.fit(train_x,train_y)
     xgb_score.append(test_score(clf_xgb,test_x,test_y))
-    clf_rf.fit(x_train,train_y)
+    clf_rf.fit(train_x,train_y)
     rf_score.append(test_score(clf_rf,test_x,test_y))
-    x_train = process_missing(x_train)
-    clf_lr.fit(x_train,train_y)
-    test_x = process_missing(test_x)
+
+process_missing(train)
+train = train.as_matrix()
+target = target.as_matrix()
+for train_index,test_index in kf.split(train,target):
+    train_x, test_x = train[train_index],train[test_index]
+    train_y, test_y = target[train_index],target[test_index]
+    clf_lr.fit(train_x,train_y)
     lr_score.append(test_score(clf_lr,test_x,test_y))
-xgb_final = xgb_score.mean(axis=0)
-rf_final = rf_score.mean(axis=0)
-lr_final = lr_score.mean(axis=0)
 
+
+# In[ ]:
+
+print ('xgb:',xgb_score)
+print ('rf:',rf_score)
+print ('lr:',lr_score)
+
+
+xgb_final = np.mean(xgb_score,axis=0)
+rf_final = np.mean(rf_score,axis=0)
+lr_final = np.mean(lr_score,axis=0)
+# In[ ]:
 '''
-
-
-# In[ ]:
-
-print ('xgb:',xgb_score_one)
-print ('rf:',rf_score_one)
-print ('lr:',lr_score_one)
-final_score = [xgb_score_one,rf_score_one,lr_score_one]
+final_score = [xgb_final,rf_final,lr_final]
 print ('final score',final_score)
-
-
-# In[ ]:
-
 
 np.savetxt('final_score.txt', final_score, delimiter=',')
 

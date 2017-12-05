@@ -1,4 +1,8 @@
 
+# coding: utf-8
+
+# In[ ]:
+
 
 # This Python 3 environment comes with many helpful analytics libraries installed
 # It is defined by the kaggle/python docker image: https://github.com/kaggle/docker-python
@@ -21,7 +25,6 @@ import random
 
 
 train = pd.read_csv('train.csv')
-        
 calc = []
 for i in train.columns[2:]:
     if i.startswith('ps_calc'):
@@ -34,6 +37,9 @@ train.drop(298018,axis=0,inplace=True)
 target = train['target']
 train.drop('target',axis=1,inplace=True)
 train.drop('id',axis=1,inplace=True)
+
+# In[ ]:
+
 
 cat_features = []
 bin_features = []
@@ -54,11 +60,9 @@ for feature in cat_features:
     train = pd.concat([train,dummies],axis=1)
     train.drop(feature,axis=1,inplace=True)
 
-clf = xgb.XGBClassifier(n_estimators = 90, max_depth = 5, silent = True, n_jobs = -1,gamma=2,
-                    booster='gbtree',random_state=7, subsample = 0.8, colsample_bytree = 0.8,
-                    learning_rate=0.1, objective = 'binary:logistic')#scale_pos_weight
-#train = train.as_matrix()
-#target = np.ravel(target)
+rf = ensemble.RandomForestClassifier(n_estimators = 94 , max_depth=5, 
+                                 min_samples_leaf=4, n_jobs = -1,  
+                                 max_features='auto', random_state=0, class_weight='balanced_subsample')
 clf.fit(train,target)
 
 test = pd.read_csv('test.csv')
@@ -70,9 +74,8 @@ for feature in cat_features:
     dummies = pd.get_dummies(test[feature],prefix=feature,drop_first=True)
     test = pd.concat([test,dummies],axis=1)
     test.drop(feature,axis=1,inplace=True)
-#test = test.as_matrix()
+
 pre_proba = clf.predict_proba(test)
 submit = pd.DataFrame({'id':ids,'target':pre_proba.T[1]})
 submit.to_csv('xgb_submit.csv',index=False) 
-
 

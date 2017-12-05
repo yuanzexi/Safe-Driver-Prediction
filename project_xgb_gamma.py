@@ -25,14 +25,18 @@ import random
 
 
 train = pd.read_csv('train.csv')
+
 calc = []
 for i in train.columns[2:]:
     if i.startswith('ps_calc'):
         calc.append(i)
-        
 train.drop(calc,axis=1,inplace=True)
+# found that 'ps_calc_15_bin','ps_calc_16_bin','ps_calc_17_bin','ps_calc_18_bin','ps_calc_19_bin','ps_calc_20_bin' are almost uniform distribution on target = 1
+# the only sample whose 'ps_car_12' value is -1 and the 'target' value is 0, I think this is a noise sample
 train.drop(298018,axis=0,inplace=True) 
 
+# 'ps_reg_01','ps_reg_02','ps_reg_03' are correlated and their combination's distribution looks great, like a normal distribution
+#train.drop(['ps_reg_01','ps_reg_02'],axis=1,inplace=True)
 '''
 # 'ps_car_12','ps_car_13' are correlated and their combination's distribution looks great
 ps_car = train['ps_car_12'].add(train['ps_car_13'])#.add(train['ps_car_14'])
@@ -108,11 +112,11 @@ def saveFigure(x,scores,x_label):
     scores = np.matrix(scores)
     fig = plt.figure(figsize = (12,10))
     length = len(np.ravel(scores[0]))
-    data = pd.DataFrame(data=scores,columns=['acc','F2 score','AP','ROC_AUC','Gini'],index=x)
+    data = pd.DataFrame(data=scores,columns=['acc','F2 score','ROC_AUC','Gini'],index=x)
     plt.plot(data)
     plt.xlabel(x_label,fontsize=18)
     plt.ylabel('CV-scores',fontsize=18)
-    plt.legend(['acc','F2 score','AP','ROC_AUC','Gini'])
+    plt.legend(['acc','F2 score','ROC_AUC','Gini'])
     #plt.show()
     fig.savefig(x_label+'.png', dpi=fig.dpi)
 
@@ -120,15 +124,15 @@ def saveFigure(x,scores,x_label):
 # In[ ]:
 
 
-estimators = np.linspace(100,1000,10,dtype=int)
-est_scores = []
-for est in estimators:
-    clf = xgb.XGBClassifier(n_estimators = est, max_depth = 5, silent = True, n_jobs = -1,
+gammas = [0,1,2,3,4,5]
+gamma_scores = []
+for gamma in gammas:
+    clf = xgb.XGBClassifier(n_estimators = 90, max_depth = 5, silent = True, n_jobs = -1,
                         booster='gbtree',random_state=7, subsample = 0.8, colsample_bytree = 0.8,
-                        learning_rate=0.1, objective = 'binary:logistic')#scale_pos_weight
-    est_scores.append(cv_score(clf,x_train,y_train))
-est_scores = np.array(est_scores)
+                        learning_rate=0.1, objective = 'binary:logistic',gamma=gamma)#scale_pos_gamma
+    gamma_scores.append(cv_score(clf,x_train,y_train))
+gamma_scores = np.array(gamma_scores)
 
-np.savetxt('xgb_estimators_100_1000_10_0.1_5.txt', est_scores, delimiter=',')
-saveFigure(estimators, est_scores, 'Estimators_100_1000_10_0.1_5')
+np.savetxt('xgb_gammas_0_5_0.1_90_5.txt', gamma_scores, delimiter=',')
+#saveFigure(gammas, gamma_scores, 'xgb_gamma_1_2_0.1_90_5')
 
